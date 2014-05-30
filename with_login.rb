@@ -7,9 +7,18 @@ abort "#{$0} login passwd gallery_full_url" if (ARGV.size != 3)
 HOME_URL = "http://www.deviantart.com"
 GALLERY_URL = ARGV[2].to_s 
 AUTHOR_NAME = GALLERY_URL.split('.').first.split('//').last
+
+if GALLERY_URL.split('/').count == 6
+  GALLERY_NAME = GALLERY_URL.split('/').last
+else
+  GALLERY_NAME = "default-gallery"
+end
+
 Dir.mkdir("deviantart") unless File.exists?("deviantart") do
   Dir.chdir("deviantart") do
-    Dir.mkdir(AUTHOR_NAME) unless File.exists?(AUTHOR_NAME)
+    Dir.mkdir(AUTHOR_NAME) unless File.exists?(AUTHOR_NAME) do
+      Dir.mkdir(GALLERY_NAME) unless File.exists?(GALLERY_NAME) 
+    end
   end
 end
 HEADERS_HASH = {"User-Agent" => "Ruby/#{RUBY_VERSION}"}
@@ -36,7 +45,6 @@ a_links = Array.new
 image_links_first_page = Array.new
 image_links_next_page = Array.new
 image_links = Array.new
-
 if agent.page.parser.css('li.number').last  
   last_page_number = agent.page.parser.css('li.number').last.text.to_i
 
@@ -70,7 +78,7 @@ puts "Total #{page_links.length} pages, #{image_links.count} images.\n\n"
 image_links.map { |link| 
   print "Downloading #{link} ..."
   file_name = link.to_s.split('/').last
-  file_path = "deviantart/#{AUTHOR_NAME}/#{file_name}"
+  file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
   agent.get(link).save(file_path) unless File.exist?(file_path) 
   puts "completed."
   puts "Image has been saved to #{file_path}.\n\n" 
