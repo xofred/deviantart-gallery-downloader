@@ -6,8 +6,12 @@ abort "#{$0} login passwd gallery_full_url" if (ARGV.size != 3)
 
 HOME_URL = "http://www.deviantart.com"
 GALLERY_URL = ARGV[2].to_s 
-DATA_DIR = "image"
-Dir.mkdir(DATA_DIR) unless File.exists?(DATA_DIR)
+AUTHOR_NAME = GALLERY_URL.split('.').first.split('//').last
+Dir.mkdir("deviantart") unless File.exists?("deviantart") do
+  Dir.chdir("deviantart") do
+    Dir.mkdir(AUTHOR_NAME) unless File.exists?(AUTHOR_NAME)
+  end
+end
 HEADERS_HASH = {"User-Agent" => "Ruby/#{RUBY_VERSION}"}
 
 agent = Mechanize.new
@@ -37,7 +41,7 @@ if agent.page.parser.css('li.number').last
   last_page_number = agent.page.parser.css('li.number').last.text.to_i
 
   # Page 1
-  puts "Analyzing #{GALLERY_URL}"
+  puts "Analyzing #{GALLERY_URL} ..."
   a_links_first_page = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
   image_links_first_page = a_links_first_page.map{|thumb| thumb["data-super-img"]}.compact.uniq
   image_links = image_links_first_page
@@ -47,7 +51,7 @@ if agent.page.parser.css('li.number').last
     offset = (pg_number - 1) * 24
     page_link = GALLERY_URL + "?offset=" + offset.to_s 
     agent.get(page_link)
-    puts "Analyzing #{page_link}" 
+    puts "Analyzing #{page_link} ..." 
     a_links = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
     image_links_next_page = a_links.map{|thumb| thumb["data-super-img"]}.compact.uniq
     page_links << page_link 
@@ -55,7 +59,7 @@ if agent.page.parser.css('li.number').last
   end
 else
   # Page 1
-  puts "Analyzing #{GALLERY_URL}"
+  puts "Analyzing #{GALLERY_URL} ..."
   a_links_first_page = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
   image_links_first_page = a_links_first_page.map{|thumb| thumb["data-super-img"]}.compact.uniq
   image_links = image_links_first_page
@@ -64,10 +68,12 @@ end
 puts "Total #{page_links.length} pages, #{image_links.count} images.\n\n"
 
 image_links.map { |link| 
-  print "Downloading #{link} ......"
-  filename = link.to_s.split('/').last
-  agent.get(link).save("#{DATA_DIR}/#{filename}")
-  puts "Completed."
+  print "Downloading #{link} ..."
+  file_name = link.to_s.split('/').last
+  file_path = "deviantart/#{AUTHOR_NAME}/#{file_name}"
+  agent.get(link).save(file_path) unless File.exist?(file_path) 
+  puts "completed."
+  puts "Image has been saved to #{file_path}.\n\n" 
 }
 
 puts "\nAll download completed."
