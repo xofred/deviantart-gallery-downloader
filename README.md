@@ -1,10 +1,10 @@
 # Usage:
 
-`ruby login passwd gallery_full_url`
+`ruby with_login.rb login passwd gallery_full_url`
 
 for example: 
   
-`ruby jack bauer http://azoexevan.deviantart.com/gallery/`
+`ruby with_login.rb jack bauer http://azoexevan.deviantart.com/gallery/`
 
 # Before use
 
