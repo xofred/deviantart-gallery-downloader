@@ -75,7 +75,8 @@ end
 
 puts "Total #{page_links.length} pages, #{image_links.count} images.\n\n"
 
-image_links.map { |link| 
+image_links.each_with_index { |link, index| 
+  print "(#{index + 1}/#{image_links.count})"
   print "Downloading #{link} ..."
   file_name = link.to_s.split('/').last
   file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
