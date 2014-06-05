@@ -4,7 +4,7 @@
 
 for example: 
   
-`ruby with_login.rb jack bauer http://azoexevan.deviantart.com/gallery/`
+`ruby with_login.rb jack_bauer@ctu.com kim http://azoexevan.deviantart.com/gallery/`
 
 # Before use
 
