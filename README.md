@@ -8,6 +8,6 @@ for example:
 
 # Before use
 
-Nokogiri is needed:
+Mechanize is needed:
 
-http://nokogiri.org/tutorials/installing_nokogiri.html
+http://mechanize.rubyforge.org/
