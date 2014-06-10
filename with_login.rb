@@ -46,14 +46,23 @@ a_links = Array.new
 image_links_first_page = Array.new
 image_links_next_page = Array.new
 image_links = Array.new
+
+DeviantartDownloaderClass = Class.new do
+  define_method :page_one do
+    puts "Analyzing #{GALLERY_URL}..."
+    a_links_first_page = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
+    image_links_first_page = a_links_first_page.map{|thumb| thumb["data-super-img"]}.compact.uniq
+    image_links = image_links_first_page
+  end
+end
+
+D_down = DeviantartDownloaderClass.new 
+
 if agent.page.parser.css('li.number').last  
   last_page_number = agent.page.parser.css('li.number').last.text.to_i
 
   # Page 1
-  puts "Analyzing #{GALLERY_URL}..."
-  a_links_first_page = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
-  image_links_first_page = a_links_first_page.map{|thumb| thumb["data-super-img"]}.compact.uniq
-  image_links = image_links_first_page
+  D_down.page_one 
 
   # Page 2 to last
   for pg_number in 2..last_page_number do 
@@ -68,10 +77,7 @@ if agent.page.parser.css('li.number').last
   end
 else
   # Page 1
-  puts "Analyzing #{GALLERY_URL}..."
-  a_links_first_page = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
-  image_links_first_page = a_links_first_page.map{|thumb| thumb["data-super-img"]}.compact.uniq
-  image_links = image_links_first_page
+  D_down.page_one 
 end
 
 puts "Total #{page_links.length} pages, #{image_links.count} images. Now start downloading.\n\n"
