@@ -87,7 +87,11 @@ image_links.each_with_index { |link, index|
   puts "Downloading #{link}..."
   file_name = link.to_s.split('/').last
   file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
-  agent.get(link).save(file_path) unless File.exist?(file_path) 
+  begin 
+    agent.get(link).save(file_path) unless File.exist?(file_path) 
+  rescue Mechanize::ResponseCodeError
+    next
+  end
 }
 
 puts "\nAll download completed. Check deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}."
