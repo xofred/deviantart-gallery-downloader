@@ -4,6 +4,8 @@ require 'pry'
 
 abort "#{$0} login passwd gallery_full_url" if (ARGV.size != 3)
 
+t1 = Time.now
+
 HOME_URL = "http://www.deviantart.com/"
 GALLERY_URL = ARGV[2].to_s 
 AUTHOR_NAME = GALLERY_URL.split('.').first.split('//').last
@@ -39,59 +41,48 @@ end.click_button
 puts "Connecting to gallery..."
 agent.get(GALLERY_URL)
 
-page_links = Array.new 
-page_links << GALLERY_URL
-a_links_first_page = Array.new
-a_links = Array.new
-image_links_first_page = Array.new
-image_links_next_page = Array.new
-image_links = Array.new
-
-DeviantartDownloaderClass = Class.new do
-  define_method :page_one do
-    puts "Analyzing #{GALLERY_URL}..."
-    a_links_first_page = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
-    image_links_first_page = a_links_first_page.map{|thumb| thumb["data-super-img"]}.compact.uniq
-    image_links = image_links_first_page
-  end
-end
-
-D_down = DeviantartDownloaderClass.new 
+# Find page link
+page_links = Array.new
 
 if agent.page.parser.css('li.number').last  
   last_page_number = agent.page.parser.css('li.number').last.text.to_i
 
   # Page 1
-  D_down.page_one 
+  puts "Analyzing #{GALLERY_URL}..." 
+  page_links = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
 
   # Page 2 to last
   for pg_number in 2..last_page_number do 
     offset = (pg_number - 1) * 24
-    page_link = GALLERY_URL + "?offset=" + offset.to_s 
-    puts "Analyzing #{page_link}..." 
-    agent.get(page_link)
-    a_links = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature"))
-    image_links_next_page = a_links.map{|thumb| thumb["data-super-img"]}.compact.uniq
+    gallery_link = GALLERY_URL + "?offset=" + offset.to_s 
+    puts "Analyzing #{gallery_link}..." 
+    agent.get(gallery_link)
+    page_link = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
     page_links << page_link 
-    image_links = image_links + image_links_next_page
   end
 else
   # Page 1
-  D_down.page_one 
+  puts "Analyzing #{GALLERY_URL}..." 
+  page_links = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
 end
 
-puts "Total #{page_links.length} pages, #{image_links.count} images. Now start downloading.\n\n"
-
-image_links.each_with_index { |link, index| 
-  print "(#{index + 1}/#{image_links.count})"
-  puts "Downloading #{link}..."
-  file_name = link.to_s.split('/').last
+# Find image link and download. I guess the token has time limit, so download the image as soon as the download link was founded.
+for index in 1..page_links.count
+  agent.get(page_links[index - 1])
+  download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
+  
+  # Download
+  puts "Downloading #{download_link.split('?').first}..."
+  file_name = download_link.split('?').first.split('/').last
   file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
   begin 
-    agent.get(link).save(file_path) unless File.exist?(file_path) 
+    agent.get(download_link).save(file_path) unless File.exist?(file_path) 
   rescue Mechanize::ResponseCodeError
     next
   end
-}
+end
 
-puts "\nAll download completed. Check deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}."
+puts "\nAll download completed. Check deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}.\n\n"
+t2 = Time.now
+save = t2 - t1
+puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."
