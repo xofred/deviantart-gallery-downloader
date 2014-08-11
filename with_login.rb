@@ -1,6 +1,6 @@
 #require 'rubygems'
 require 'mechanize'
-require 'pry'
+#require 'pry'
 
 abort "#{$0} login passwd gallery_full_url" if (ARGV.size != 3)
 
@@ -60,6 +60,7 @@ if agent.page.parser.css('li.number').last
     page_link = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
     page_links << page_link 
   end
+  page_links.flatten!
 else
   # Page 1
   puts "Analyzing #{GALLERY_URL}..." 
@@ -72,12 +73,13 @@ for index in 1..page_links.count
   download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
   
   # Download
-  puts "Downloading #{download_link.split('?').first}..."
-  file_name = download_link.split('?').first.split('/').last
-  file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
   begin 
+    puts "(#{index}/#{page_links.count})Downloading #{download_link.split('?').first}..."
+    file_name = download_link.split('?').first.split('/').last
+    file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
     agent.get(download_link).save(file_path) unless File.exist?(file_path) 
-  rescue Mechanize::ResponseCodeError
+  rescue :ex
+    print ex.message, "\n" 
     next
   end
 end
