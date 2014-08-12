@@ -79,7 +79,7 @@ for index in 1..page_links.count
     file_name = download_link.split('?').first.split('/').last
     file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
     agent.get(download_link).save(file_path) unless File.exist?(file_path) 
-  rescue :ex
+  rescue => ex
     print ex.message, "\n" 
     next
   end
