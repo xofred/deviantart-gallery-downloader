@@ -27,19 +27,37 @@ end
 puts "Connecting to deviantART"
 HEADERS_HASH = {"User-Agent" => "Ruby/#{RUBY_VERSION}"}
 agent = Mechanize.new
-agent.get(HOME_URL)
+begin
+  agent.get(HOME_URL)
+rescue => ex
+  print ex.message, ", retrying\n"
+  sleep 1
+  retry
+end
 agent.pluggable_parser.default = Mechanize::Download
 
 # Login 
 puts "Logging in" 
-agent.page.form_with(:id => 'form-login') do |f|
-  f.username = ARGV[0]
-  f.password = ARGV[1]
-end.click_button
+begin
+  agent.page.form_with(:id => 'form-login') do |f|
+    f.username = ARGV[0]
+    f.password = ARGV[1]
+  end.click_button
+rescue => ex
+  print ex.message, "retry after 10 secs.\n"
+  sleep 10
+  retry
+end
 
 # Go to the gallery 
 puts "Connecting to gallery"
-agent.get(GALLERY_URL)
+begin
+  agent.get(GALLERY_URL)
+rescue => ex
+  print ex.message, ", retrying\n"
+  sleep 1
+  retry
+end
 
 # Find page link
 page_links = Array.new
@@ -69,12 +87,12 @@ end
 
 # Find image link and download. I guess the token has time limit, so download the image as soon as the download link was founded.
 for index in 1..page_links.count
-  agent.get(page_links[index - 1])
-  download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
-  title = agent.page.parser.css(".dev-title-container h1 a").text
-  
-  # Download
-  begin 
+  begin
+    agent.get(page_links[index - 1])
+    download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
+    title = agent.page.parser.css(".dev-title-container h1 a").text
+
+    # Download
     puts "(#{index}/#{page_links.count})Downloading \"#{title}\""
     file_name = download_link.split('?').first.split('/').last
     file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
