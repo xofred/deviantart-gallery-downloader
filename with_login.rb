@@ -89,7 +89,7 @@ end
 for index in 1..page_links.count
   begin
     agent.get(page_links[index - 1])
-    download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
+    download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0] || agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0] 
     title = agent.page.parser.css(".dev-title-container h1 a").text
 
     # Download
