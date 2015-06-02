@@ -11,3 +11,9 @@ for example:
 Mechanize is needed:
 
 http://mechanize.rubyforge.org/
+
+`sudo gem install mechanize`
+
+Mechanize (as well as the rest of your Ruby gems) can be ketp up to date using the command:
+
+`sudo gem update`
