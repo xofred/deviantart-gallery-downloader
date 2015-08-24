@@ -1,13 +1,56 @@
-#require 'rubygems'
 require 'mechanize'
-#require 'pry'
-
-abort "#{$0} login passwd gallery_full_url" if (ARGV.size != 3)
+require 'netrc'
 
 t1 = Time.now
 
+# Check if command right
+# Then check if .netrc file exist
+# Then check if entry exist
+if ARGV.size == 2 && ARGV[0] == "-n"
+  if n = Netrc.read
+    if n["deviantart.com"]
+      puts "Using netrc's credential"
+    else
+      abort "No entry found, please re-run the program and enter your login and password."
+    end
+  else
+    abort "Reading .netrc failed, please re-run the program and enter your login and password."
+  end
+elsif ARGV.size == 3
+  begin
+    n = Netrc.read
+    if n["deviantart.com"]
+      puts "Updating netrc's entry"
+      n["deviantart.com"] = ARGV[0], ARGV[1]
+      n.save
+    else
+      puts "Creating netrc's entry"
+      n.new_item_prefix = "# This entry was added by deviantart-gallery-downloader automatically\n"
+      n["deviantart.com"] = ARGV[0], ARGV[1]
+      n.save
+    end
+  rescue => ex
+    print ex.message, ", writing .netrc file failed, continue.\n"
+  end
+else
+  puts "Usage first time:"
+  puts "  ruby with_login.rb LOGIN-EMAIL PASSWORD GALLERY-URL"
+  puts "For example:"
+  puts "  ruby with_login.rb jack_bauer@ctu.com kim http://azoexevan.deviantart.com/gallery/"
+  puts ""
+  puts "After:"
+  puts "  ruby with_login.rb -n GALLERY-URL"
+  puts "For example:"
+  puts "  ruby with_login.rb -n http://azoexevan.deviantart.com/gallery/"
+  abort
+end
+
 HOME_URL = "http://www.deviantart.com/"
-GALLERY_URL = ARGV[2].to_s 
+if ARGV.size == 3
+  GALLERY_URL = ARGV[2].to_s
+else
+  GALLERY_URL = ARGV[1].to_s
+end
 AUTHOR_NAME = GALLERY_URL.split('.').first.split('//').last
 
 if GALLERY_URL.split('/').count == 6
@@ -40,9 +83,20 @@ agent.pluggable_parser.default = Mechanize::Download
 puts "Logging in" 
 begin
   agent.page.form_with(:id => 'form-login') do |f|
-    f.username = ARGV[0]
-    f.password = ARGV[1]
+    if ARGV.size == 3
+      f.username = ARGV[0]
+      f.password = ARGV[1]
+    else
+      f.username = n["deviantart.com"].login
+      f.password = n["deviantart.com"].password
+    end
   end.click_button
+  if agent.cookie_jar.count < 3
+    puts "Log on unsuccessful (maybe wrong login/pass combination?)"
+    puts "You might not be able to fetch the age restricted resources"
+  else
+    puts "Log on successful"
+  end
 rescue => ex
   print ex.message, "retry after 10 secs.\n"
   sleep 10
@@ -107,3 +161,5 @@ puts "\nAll download completed. Check deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}.
 t2 = Time.now
 save = t2 - t1
 puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."
+
+
