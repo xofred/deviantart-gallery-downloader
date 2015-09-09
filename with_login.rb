@@ -115,9 +115,11 @@ end
 
 # Find page link
 page_links = Array.new
+# Find last page number
+last_page_number = agent.page.parser.css('.pagination ul.pages').first.text.tr('^0-9', '').split("").last
 
-if agent.page.parser.css('li.number').last  
-  last_page_number = agent.page.parser.css('li.number').last.text.to_i
+if last_page_number
+  last_page_number = last_page_number.to_i
 
   # Page 1
   puts "(1/#{last_page_number})Analyzing #{GALLERY_URL}"
