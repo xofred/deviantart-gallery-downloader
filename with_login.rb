@@ -115,6 +115,8 @@ end
 
 # Find page link
 page_links = Array.new
+normal_link_selector = "div.tt-a.tt-fh a.thumb"
+mature_link_selector = "div.tt-a.tt-fh a.thumb ismature"
 # Find last page number
 last_page_number = agent.page.parser.css('.pagination ul.pages').first.text.tr('^0-9', '').split("").last
 
@@ -123,7 +125,7 @@ if last_page_number
 
   # Page 1
   puts "(1/#{last_page_number})Analyzing #{GALLERY_URL}"
-  page_links = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
+  page_links = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
 
   # Page 2 to last
   for pg_number in 2..last_page_number do 
@@ -131,14 +133,14 @@ if last_page_number
     gallery_link = GALLERY_URL + "?offset=" + offset.to_s 
     puts "(#{pg_number}/#{last_page_number})Analyzing #{gallery_link}" 
     agent.get(gallery_link)
-    page_link = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
+    page_link = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
     page_links << page_link 
   end
   page_links.flatten!
 else
   # Page 1
   puts "Analyzing #{GALLERY_URL}" 
-  page_links = (agent.page.parser.css("a.thumb") || agent.page.parser.css("a.thumb ismature")).map{|a| a["href"]}
+  page_links = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
 end
 
 # Find image link and download. I guess the token has time limit, so download the image as soon as the download link was founded.
