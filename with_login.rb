@@ -157,7 +157,7 @@ for index in 1..page_links.count
     
     file_ext = file_name.split('.').last
 
-    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ")
+    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/\\', '-')
 
     file_name = file_title+'.'+file_ext
 
