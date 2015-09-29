@@ -118,10 +118,10 @@ page_links = Array.new
 normal_link_selector = "div.tt-a.tt-fh a.thumb"
 mature_link_selector = "div.tt-a.tt-fh a.thumb ismature"
 # Find last page number
-last_page_number = agent.page.parser.css('.pagination ul.pages').first.text.tr('^0-9', '').split("").last
+last_page = agent.page.parser.css('.folderview-art .pagination ul.pages li.number').last
 
-if last_page_number
-  last_page_number = last_page_number.to_i
+if last_page
+  last_page_number = last_page.text.to_i
 
   # Page 1
   puts "(1/#{last_page_number})Analyzing #{GALLERY_URL}"
