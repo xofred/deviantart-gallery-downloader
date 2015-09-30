@@ -148,12 +148,21 @@ for index in 1..page_links.count
   begin
     agent.get(page_links[index - 1])
     download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0] || agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0] 
-    title = agent.page.parser.css(".dev-title-container h1 a").text
-
-    # Download
+    title_elem = agent.page.parser.css(".dev-title-container h1 a").first
+    title = title_elem.text
+    
     puts "(#{index}/#{page_links.count})Downloading \"#{title}\""
+    
+    #Sanitize filename
     file_name = download_link.split('?').first.split('/').last
+    file_id = title_elem['href'].split('-').last
+    file_ext = file_name.split('.').last
+    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/\\', '-')
+
+    file_name = file_title+'.'+file_id+'.'+file_ext
     file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
+   
+    # Download
     agent.get(download_link).save(file_path) unless File.exist?(file_path) 
   rescue => ex
     print ex.message, "\n" 
