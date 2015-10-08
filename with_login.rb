@@ -118,38 +118,52 @@ page_links = Array.new
 normal_link_selector = "div.tt-a.tt-fh a.thumb"
 mature_link_selector = "div.tt-a.tt-fh a.thumb ismature"
 # Find last page number
-last_page = agent.page.parser.css('.folderview-art .pagination ul.pages li.number').last
+last_page = agent.page.parser.css('.zones-top-left .pagination ul.pages li.number').last
 
+#The page number is just for information
 if last_page
-  last_page_number = last_page.text.to_i
-
-  # Page 1
-  puts "(1/#{last_page_number})Analyzing #{GALLERY_URL}"
-  page_links = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
-
-  # Page 2 to last
-  for pg_number in 2..last_page_number do 
-    offset = (pg_number - 1) * 24
-    gallery_link = GALLERY_URL + "?offset=" + offset.to_s 
-    puts "(#{pg_number}/#{last_page_number})Analyzing #{gallery_link}" 
-    agent.get(gallery_link)
-    page_link = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
-    page_links << page_link 
-  end
-  page_links.flatten!
+  last_page_number = last_page.text
+elsif agent.page.parser.css('.zones-top-left .pagination ul.pages li.next a').first['href'].nil?
+  last_page_number = '1'
 else
-  # Page 1
-  puts "Analyzing #{GALLERY_URL}" 
-  page_links = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
+  last_page_number = '?'
 end
+
+pg_number=1
+gallery_link=GALLERY_URL
+
+loop do 
+  #We fetch the curent page
+  puts "(#{pg_number}/#{last_page_number})Analyzing #{gallery_link}"
+  page_link = (agent.page.parser.css(normal_link_selector) || agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
+  page_links << page_link 
+  
+  #If the curent page is the last page, we exit the loop
+  break if agent.page.parser.css('.zones-top-left .pagination ul.pages li.next a').first['href'].nil?
+  
+  #If not, we load the next page
+  pg_number = pg_number + 1
+  offset = (pg_number - 1) * 24
+  if GALLERY_URL.include? "?"
+	gallery_link = GALLERY_URL + "&"
+  else
+	gallery_link = GALLERY_URL + "?"
+  end
+  gallery_link = gallery_link + "offset=" + offset.to_s 
+	
+  agent.get(gallery_link)
+end 
+page_links.flatten!
 
 # Find image link and download. I guess the token has time limit, so download the image as soon as the download link was founded.
 for index in 1..page_links.count
   begin
     agent.get(page_links[index - 1])
     download_link = agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0] || agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0] 
-    title_elem = agent.page.parser.css(".dev-title-container h1 a").first
-    title = title_elem.text
+    title_art_elem = agent.page.parser.css(".dev-title-container h1 a")
+    title_elem = title_art_elem.first
+	title_art = title_art_elem.last.text
+	title = title_elem.text
     
     puts "(#{index}/#{page_links.count})Downloading \"#{title}\""
     
@@ -159,9 +173,9 @@ for index in 1..page_links.count
     file_ext = file_name.split('.').last
     file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/\\', '-')
 
-    file_name = file_title+'.'+file_id+'.'+file_ext
+    file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
     file_path = "deviantart/#{AUTHOR_NAME}/#{GALLERY_NAME}/#{file_name}"
-   
+	
     # Download
     agent.get(download_link).save(file_path) unless File.exist?(file_path) 
   rescue => ex
