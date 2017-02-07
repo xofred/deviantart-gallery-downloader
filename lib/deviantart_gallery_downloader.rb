@@ -13,8 +13,7 @@ class DeviantartGalleryDownloader
 
     # Find page link
     page_links = [] 
-    normal_link_selector = "div.tt-a.tt-fh a.thumb"
-    mature_link_selector = "div.tt-a.tt-fh a.thumb ismature"
+    link_selector = 'a.torpedo-thumb-link'
     # Find last page number
     last_page = @@agent.page.parser.css('.zones-top-left .pagination ul.pages li.number').last
 
@@ -33,7 +32,7 @@ class DeviantartGalleryDownloader
     loop do 
       #We fetch the curent page
       puts "(#{pg_number}/#{last_page_number})Analyzing #{gallery_link}"
-      page_link = (@@agent.page.parser.css(normal_link_selector) || @@agent.page.parser.css(mature_link_selector)).map{|a| a["href"]}
+      page_link = @@agent.page.parser.css(link_selector).map{|a| a["href"]}
       page_links << page_link 
 
       #If the curent page is the last page, we exit the loop
@@ -146,7 +145,7 @@ class DeviantartGalleryDownloader
   end
 
   def self.create_image_directories
-    @@home_url = "http://www.deviantart.com/"
+    @@home_url = "https://www.deviantart.com/users/login"
     @@gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
     @@author_name = @@gallery_url.split('.').first.split('//').last
     @@gallery_name = @@gallery_url.split('/').count == 6 ? @@gallery_url.split('/').last : @@gallery_name = "default-gallery"
@@ -185,7 +184,7 @@ class DeviantartGalleryDownloader
     puts "Logging in" 
     retry_count = 0
     begin
-      @@agent.page.form_with(:id => 'form-login') do |f|
+      @@agent.page.form_with(:id => 'login') do |f|
         if ARGV.size == 3
           f.username = ARGV[0]
           f.password = ARGV[1]
