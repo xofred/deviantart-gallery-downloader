@@ -5,7 +5,7 @@ GIT
     netrc (0.10.3)
 
 GEM
-  remote: https://ruby.taobao.org/
+  remote: https://gems.ruby-china.org/
   specs:
     domain_name (0.5.18)
       unf (>= 0.0.5, < 1.0.0)
@@ -40,4 +40,4 @@ DEPENDENCIES
   netrc!
 
 BUNDLED WITH
-   1.11.2
+   1.14.5
