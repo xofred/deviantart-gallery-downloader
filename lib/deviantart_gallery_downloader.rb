@@ -163,7 +163,9 @@ class DeviantartGalleryDownloader
       end
       page_links.flatten!
     rescue => ex
-      puts ex.message
+      ex.backtrace.each do |detail|
+        puts detail
+      end
       if retry_count < 3
         retry_count += 1
         puts "will retry after 1 second"
@@ -199,7 +201,7 @@ class DeviantartGalleryDownloader
 
     if last_page
       last_page_number = last_page.text.to_i
-    elsif @agent.page.parser.css('.zones-top-left .pagination ul.pages li.next a').first['href'].nil?
+    elsif @agent.page.parser.css('.zones-top-left .pagination ul.pages li.next a').first.nil?
       last_page_number = 1
     else
       abort "Cannot determine page numbers, abort"
