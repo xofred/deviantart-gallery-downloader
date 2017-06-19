@@ -17,3 +17,8 @@ On the intital run, we need to add your login credential to your users ~/.netrc 
 An entry in ~/.netrc is created for you. You can then use '-n' and it will poll the netrc file for your login credentials.
 
 `ruby fetch.rb -n http://azoexevan.deviantart.com/gallery/`
+
+# Deviantart account setting
+
+Please go to https://www.deviantart.com/settings/browsing. In "**General Browsing**" section, make sure "**Display**" as "**24 Thumbnails per Page**" and "**Paging**" as "**Click through pages**"
+
