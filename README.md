@@ -11,6 +11,7 @@ or
 # Deviantart account setting
 
 Please go to https://www.deviantart.com/settings/browsing. In "**General Browsing**" section, make sure "**Display**" as "**24 Thumbnails per Page**" and "**Paging**" as "**Click through pages**"
+![Deviantart account setting](https://user-images.githubusercontent.com/2174219/27268778-7a0edf0c-54e4-11e7-859c-c7b0b7200a77.png)
 
 # The downloader uses GALLERY'S PAGE
 
