@@ -2,54 +2,64 @@ require 'mechanize'
 require 'netrc'
 
 class DeviantartGalleryDownloader
-  attr_accessor :agent, :gallery_url, :author_name, :gallery_name
+  attr_accessor :agent, :gallery_url, :author_name
   HOME_URL = "https://www.deviantart.com/users/login"
 
   def initialize
     @agent = Mechanize.new
     @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
     @author_name = @gallery_url.split('.').first.split('//').last
-    @gallery_name = @gallery_url.split('/').count == 6 ? @gallery_url.split('/').last : "default-gallery"
   end
 
   def fetch
     t1 = Time.now
 
-    create_image_directories
     netrc_credential = create_or_update_credential
     login_to_deviantart(netrc_credential)
-    image_page_links = get_image_page_links
-    image_page_links.each_with_index do |page_link, index|
-      retry_count = 0
-      begin
-        @agent.get(page_link)
-        download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
-        image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
-        download_link = download_button_link || image_link
-        file_path = get_file_path(index, image_page_links, download_link)
-        @agent.get(download_link).save(file_path) unless File.exist?(file_path)
-      rescue => ex
-        puts ex.message
-        if retry_count < 3
-          retry_count += 1
-          puts "retrying..."
-          retry
-        else
-          next "failed after 3 retries, next"
+
+    folders = get_folders
+    puts "\n#{folders.size} folders found:\n\n"
+    folders.map {|folder| puts "#{folder[:name]}"}
+    puts "\n"
+    create_image_directories(folders)
+
+    folders.each do |folder|
+      image_page_links = get_image_page_links(folder[:link])
+      image_page_links.each_with_index do |page_link, index|
+        retry_count = 0
+        begin
+          @agent.get(page_link)
+          download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
+          image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
+          if ARGV[0].include?("-s")
+            download_link = image_link
+          else
+            download_link = download_button_link || image_link
+          end
+          file_path = get_file_path(index, image_page_links, download_link, folder[:name])
+          @agent.get(download_link).save(file_path) unless File.exist?(file_path)
+        rescue => ex
+          puts ex.message
+          if retry_count < 3
+            retry_count += 1
+            puts "retrying..."
+            retry
+          else
+            next "failed after 3 retries, next"
+          end
         end
       end
+      puts "\nAll download completed. Check deviantart/#{@author_name}/#{folder[:name]}.\n\n"
+      t2 = Time.now
+      save = t2 - t1
+      puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."
     end
-
-    puts "\nAll download completed. Check deviantart/#{@author_name}/#{@gallery_name}.\n\n"
-    t2 = Time.now
-    save = t2 - t1
-    puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."   
   end
 
   private
 
   def create_or_update_credential
-    if ARGV.size == 2 && ARGV[0] == "-n"
+    if ARGV.size == 2 && ARGV[0].include?("-n")
       if n = Netrc.read
         if n["deviantart.com"]
           puts "Using netrc's credential"
@@ -97,11 +107,14 @@ class DeviantartGalleryDownloader
     puts "ruby fetch.rb -n http://azoexevan.deviantart.com/gallery/"
   end
 
-  def create_image_directories
-    Dir.mkdir("deviantart") unless File.exists?("deviantart") do
-      Dir.chdir("deviantart") do
-        Dir.mkdir(@author_name) unless File.exists?(@author_name) do
-          Dir.mkdir(@gallery_name) unless File.exists?(@gallery_name)
+  def create_image_directories(folders)
+    Dir.mkdir("deviantart") unless File.exists?("deviantart")
+    Dir.chdir("deviantart") do
+      Dir.mkdir(@author_name) unless File.exists?(@author_name)
+      Dir.chdir(@author_name) do
+        folders.each do |folder|
+          `mv default-gallery Featured`if File.exists?('default-gallery') # For compatibility
+          Dir.mkdir(folder[:name]) unless File.exists?(folder[:name])
         end
       end
     end
@@ -142,26 +155,42 @@ class DeviantartGalleryDownloader
     end   
   end
 
-  def get_image_page_links
+  def get_folders
+    @agent.get(@gallery_url)
+
+    gallery_folders = @agent.page.parser.css('.tv150-cover')
+    folders = []
+    if gallery_folders.length > 0
+      gallery_folders.each do |folder|
+        link = folder['href']
+        name = link.split('/').last
+        folders.push({link: link, name: name})
+      end
+    end
+    folders.push({link: @gallery_url, name: 'Featured'})
+    folders
+  end
+
+  def get_image_page_links(folder_link)
     retry_count = 0
-    puts "Connecting to gallery"
+    puts "Connecting to #{folder_link}"
     begin
-      @agent.get(@gallery_url)
-      page_links = []
+      @agent.get(folder_link)
+      image_page_links = []
       link_selector = 'a.torpedo-thumb-link'
       last_page_number = get_last_page_number
+      folder_link = folder_link.include?("?") ? folder_link + "&" : folder_link + "?"
+
       last_page_number.times do |i|
         current_page_number = i + 1
-        puts "(#{current_page_number}/#{last_page_number})Analyzing #{@gallery_url}"
-        page_link = @agent.page.parser.css(link_selector).map{|a| a["href"]}
-        page_links << page_link
-        gallery_link = @gallery_url.include?("?") ? @gallery_url + "&" : @gallery_url + "?"
-        if current_page_number > 1
-          gallery_link += "offset=" + (current_page_number * 24).to_s
-        end
-        @agent.get(gallery_link)
+        current_page_link = folder_link + "offset=" + ((current_page_number - 1) * 24).to_s
+        puts "(#{current_page_number}/#{last_page_number})Analyzing #{current_page_link}"
+        current_page_image_links = @agent.page.parser.css(link_selector).map{|a| a["href"]}
+        image_page_links.push(current_page_image_links)
+        next_page_link = folder_link + "offset=" + (current_page_number * 24).to_s
+        @agent.get(next_page_link)
       end
-      page_links.flatten!
+      image_page_links.flatten!
     rescue => ex
       ex.backtrace.each do |detail|
         puts detail
@@ -177,7 +206,7 @@ class DeviantartGalleryDownloader
     end
   end
 
-  def get_file_path(index, image_page_links, download_link)
+  def get_file_path(index, image_page_links, download_link, folder_name)
     title_art_elem = @agent.page.parser.css(".dev-title-container h1 a")
     title_elem = title_art_elem.first
     title_art = title_art_elem.last.text
@@ -192,7 +221,7 @@ class DeviantartGalleryDownloader
     file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/\\', '-')
 
     file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
-    file_path = "deviantart/#{@author_name}/#{@gallery_name}/#{file_name}"
+    file_path = "deviantart/#{@author_name}/#{@gallery_name}/#{folder_name}/#{file_name}"
   end
 
   def get_last_page_number
@@ -201,10 +230,8 @@ class DeviantartGalleryDownloader
 
     if last_page
       last_page_number = last_page.text.to_i
-    elsif @agent.page.parser.css('.zones-top-left .pagination ul.pages li.next a').first.nil?
-      last_page_number = 1
     else
-      abort "Cannot determine page numbers, abort"
+      last_page_number = 1
     end   
   end
 end
