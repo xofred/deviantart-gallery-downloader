@@ -7,6 +7,7 @@ class DeviantartGalleryDownloader
 
   def initialize
     @agent = Mechanize.new
+    @agent.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'
     @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
     @author_name = @gallery_url.split('.').first.split('//').last
     @gallery_name = @gallery_url.split('/').count == 6 ? @gallery_url.split('/').last : "default-gallery"
