@@ -8,6 +8,7 @@ class DeviantartGalleryDownloader
   def initialize
     @agent = Mechanize.new
     @agent.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'
+    @agent.request_headers = { 'Referer' => 'https://www.deviantart.com/' }
     @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
     @author_name = @gallery_url.split('.').first.split('//').last
     @gallery_name = @gallery_url.split('/').count == 6 ? @gallery_url.split('/').last : "default-gallery"
@@ -41,7 +42,7 @@ class DeviantartGalleryDownloader
       end
     end
 
-    puts "\nAll download completed. Check deviantart/#{@author_name}/#{@gallery_name}.\n\n"
+    puts "\nAll download completed. Check deviantart/#{@author_name}/#{@gallery_name}\n\n"
     t2 = Time.now
     save = t2 - t1
     puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."   
@@ -200,10 +201,10 @@ class DeviantartGalleryDownloader
 
     if last_page
       last_page_number = last_page.text.to_i
-    elsif @agent.page.parser.css('.zones-top-left .pagination ul.pages li.next a').first['href'].nil?
+    elsif @agent.page.parser.css('.torpedo-thumb-link img').any?
       last_page_number = 1
     else
-      abort "Cannot determine page numbers, abort"
+      abort "gallery has no images, abort"
     end   
   end
 end
