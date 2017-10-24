@@ -22,3 +22,7 @@ On the intital run, we need to add your login credential to your users ~/.netrc 
 An entry in ~/.netrc is created for you. You can then use '-n' and it will poll the netrc file for your login credentials.
 
 `ruby fetch.rb -n http://azoexevan.deviantart.com/gallery/`
+
+# What if I want to download all the folders of an author?
+
+Try the [dev branch](https://github.com/xofred/deviantart-gallery-downloader/tree/dev)
