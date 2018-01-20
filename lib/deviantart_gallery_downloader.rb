@@ -1,5 +1,6 @@
 require 'mechanize'
 require 'netrc'
+require 'fileutils'
 
 class DeviantartGalleryDownloader
   attr_accessor :agent, :gallery_url, :author_name
@@ -27,27 +28,35 @@ class DeviantartGalleryDownloader
 
     folders.each do |folder|
       image_page_links = get_image_page_links(folder[:link])
-      image_page_links.each_with_index do |page_link, index|
-        retry_count = 0
-        begin
-          @agent.get(page_link)
-          download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
-          image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
-          if ARGV[0].include?("-s")
-            download_link = image_link
-          else
-            download_link = download_button_link || image_link
-          end
-          file_path = get_file_path(index, image_page_links, download_link, folder[:name])
-          @agent.get(download_link).save(file_path) unless File.exist?(file_path)
-        rescue => ex
-          puts ex.message
-          if retry_count < 3
-            retry_count += 1
-            puts "retrying..."
-            retry
-          else
-            next "failed after 3 retries, next"
+      if not image_page_links.nil?
+        image_page_links.each_with_index do |page_link, index|
+          retry_count = 0
+          begin
+            @agent.get(page_link)
+            download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
+            image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
+            if ARGV[0].include?("-s")
+              download_link = image_link
+            else
+              download_link = download_button_link || image_link
+            end
+            if not download_link.nil?
+              file_path = get_file_path(index, image_page_links, download_link, folder[:name])
+              @agent.get(download_link).save(file_path) unless File.exist?(file_path)
+            else
+              page_path = get_page_path(index,image_page_links, page_link, folder[:name])
+              #@agent.page.parser.css("div.text").save(page_path) unless File.exist?(page_path)
+              @agent.page.save(page_path) unless File.exist?(page_path)
+            end
+          rescue => ex
+            puts ex.message
+            if retry_count < 3
+              retry_count += 1
+              puts "retrying..."
+              retry
+            else
+              next "failed after 3 retries, next"
+            end
           end
         end
       end
@@ -115,8 +124,10 @@ class DeviantartGalleryDownloader
       Dir.mkdir(@author_name) unless File.exists?(@author_name)
       Dir.chdir(@author_name) do
         folders.each do |folder|
-          `mv default-gallery Featured`if File.exists?('default-gallery') # For compatibility
           Dir.mkdir(folder[:name]) unless File.exists?(folder[:name])
+        end
+        if File.exists?('default-gallery') # For compatibility
+          FileUtils.mv(Dir['default-gallery/*'],'Featured')
         end
       end
     end
@@ -167,9 +178,34 @@ class DeviantartGalleryDownloader
         link = folder['href']
         name = link.split('/').last
         folders.push({link: link, name: name})
+        subfolders = []
+        subfolders = get_folders_in_folder(link,name)
+        if not subfolders.nil?
+          folders.concat(subfolders)
+        end
       end
     end
     folders.push({link: @gallery_url, name: 'Featured'})
+    folders
+  end
+
+  def get_folders_in_folder(parent_link,parent_name)
+    @agent.get(parent_link)
+
+    gallery_folders = @agent.page.parser.css('.tv150-cover')
+    folders = []
+    if gallery_folders.length > 0
+      gallery_folders.each do |folder|
+        link = folder['href']
+        name = "#{parent_name}/#{link.split('/').last}"
+        folders.push({link: link, name: name})
+        subfolders = []
+        subfolders = get_folders_in_folder(link,name)
+        if not subfolders.nil?
+          folders.concat(subfolders)
+        end
+      end
+    end
     folders
   end
 
@@ -181,16 +217,20 @@ class DeviantartGalleryDownloader
       image_page_links = []
       link_selector = 'a.torpedo-thumb-link'
       last_page_number = get_last_page_number
-      folder_link = folder_link.include?("?") ? folder_link + "&" : folder_link + "?"
+      
+      if last_page_number > 0
+      
+        folder_link = folder_link.include?("?") ? folder_link + "&" : folder_link + "?"
 
-      last_page_number.times do |i|
-        current_page_number = i + 1
-        current_page_link = folder_link + "offset=" + ((current_page_number - 1) * 24).to_s
-        puts "(#{current_page_number}/#{last_page_number})Analyzing #{current_page_link}"
-        current_page_image_links = @agent.page.parser.css(link_selector).map{|a| a["href"]}
-        image_page_links.push(current_page_image_links)
-        next_page_link = folder_link + "offset=" + (current_page_number * 24).to_s
-        @agent.get(next_page_link)
+        last_page_number.times do |i|
+          current_page_number = i + 1
+          current_page_link = folder_link + "offset=" + ((current_page_number - 1) * 24).to_s
+          puts "(#{current_page_number}/#{last_page_number})Analyzing #{current_page_link}"
+          current_page_image_links = @agent.page.parser.css(link_selector).map{|a| a["href"]}
+          image_page_links.push(current_page_image_links)
+          next_page_link = folder_link + "offset=" + (current_page_number * 24).to_s
+          @agent.get(next_page_link)
+        end
       end
       image_page_links.flatten!
     rescue => ex
@@ -220,7 +260,25 @@ class DeviantartGalleryDownloader
     file_name = download_link.split('?').first.split('/').last
     file_id = title_elem['href'].split('-').last
     file_ext = file_name.split('.').last
-    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/\\', '-')
+    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/:?\\', '-')
+
+    file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
+    file_path = "deviantart/#{@author_name}/#{@gallery_name}/#{folder_name}/#{file_name}"
+  end
+
+  def get_page_path(index, image_page_links, page_link, folder_name)
+    title_art_elem = @agent.page.parser.css(".dev-title-container h1 a")
+    title_elem = title_art_elem.first
+    title_art = title_art_elem.last.text
+    title = title_elem.text
+
+    puts "(#{index + 1}/#{image_page_links.count})Saving \"#{title}\""
+
+    #Sanitize filename
+    file_name = page_link.split('?').first.split('/').last
+    file_id = title_elem['href'].split('-').last
+    file_ext = 'htm'
+    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/:?\\', '-')
 
     file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
     file_path = "deviantart/#{@author_name}/#{@gallery_name}/#{folder_name}/#{file_name}"
@@ -235,7 +293,8 @@ class DeviantartGalleryDownloader
     elsif @agent.page.parser.css('.torpedo-thumb-link img').any?
       last_page_number = 1
     else
-      abort "gallery has no images, abort"
+      puts "gallery has no images, skipping"
+      last_page_number = 0
     end
   end
 end
