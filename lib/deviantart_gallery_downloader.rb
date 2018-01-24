@@ -28,38 +28,38 @@ class DeviantartGalleryDownloader
 
     folders.each do |folder|
       image_page_links = get_image_page_links(folder[:link])
-      if not image_page_links.nil?
-        image_page_links.each_with_index do |page_link, index|
-          retry_count = 0
-          begin
-            @agent.get(page_link)
-            download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
-            image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
-            if ARGV[0].include?("-s")
-              download_link = image_link
-            else
-              download_link = download_button_link || image_link
-            end
-            if not download_link.nil?
-              file_path = get_file_path(index, image_page_links, download_link, folder[:name])
-              @agent.get(download_link).save(file_path) unless File.exist?(file_path)
-            else
-              page_path = get_page_path(index,image_page_links, page_link, folder[:name])
-              #@agent.page.parser.css("div.text").save(page_path) unless File.exist?(page_path)
-              @agent.page.save(page_path) unless File.exist?(page_path)
-            end
-          rescue => ex
-            puts ex.message
-            if retry_count < 3
-              retry_count += 1
-              puts "retrying..."
-              retry
-            else
-              next "failed after 3 retries, next"
-            end
+      next if image_page_links.nil?
+      image_page_links.each_with_index do |page_link, index|
+        retry_count = 0
+        begin
+          @agent.get(page_link)
+          download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
+          image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
+          if ARGV[0].include?("-s")
+            download_link = image_link
+          else
+            download_link = download_button_link || image_link
+          end
+          if not download_link.nil?
+            file_path = get_file_path(index, image_page_links, download_link, folder[:name])
+            @agent.get(download_link).save(file_path) unless File.exist?(file_path)
+          else
+            page_path = get_page_path(index,image_page_links, page_link, folder[:name])
+            #@agent.page.parser.css("div.text").save(page_path) unless File.exist?(page_path)
+            @agent.page.save(page_path) unless File.exist?(page_path)
+          end
+        rescue => ex
+          puts ex.message
+          if retry_count < 3
+            retry_count += 1
+            puts "retrying..."
+            retry
+          else
+            next "failed after 3 retries, next"
           end
         end
       end
+      
       puts "\nAll download completed. Check deviantart/#{@author_name}/#{folder[:name]}\n\n"
       t2 = Time.now
       save = t2 - t1
@@ -199,7 +199,6 @@ class DeviantartGalleryDownloader
         link = folder['href']
         name = "#{parent_name}/#{link.split('/').last}"
         folders.push({link: link, name: name})
-        subfolders = []
         subfolders = get_folders_in_folder(link,name)
         if not subfolders.nil?
           folders.concat(subfolders)
@@ -218,19 +217,18 @@ class DeviantartGalleryDownloader
       link_selector = 'a.torpedo-thumb-link'
       last_page_number = get_last_page_number
       
-      if last_page_number > 0
+      return if last_page_number == 0
       
-        folder_link = folder_link.include?("?") ? folder_link + "&" : folder_link + "?"
+      folder_link = folder_link.include?("?") ? folder_link + "&" : folder_link + "?"
 
-        last_page_number.times do |i|
-          current_page_number = i + 1
-          current_page_link = folder_link + "offset=" + ((current_page_number - 1) * 24).to_s
-          puts "(#{current_page_number}/#{last_page_number})Analyzing #{current_page_link}"
-          current_page_image_links = @agent.page.parser.css(link_selector).map{|a| a["href"]}
-          image_page_links.push(current_page_image_links)
-          next_page_link = folder_link + "offset=" + (current_page_number * 24).to_s
-          @agent.get(next_page_link)
-        end
+      last_page_number.times do |i|
+        current_page_number = i + 1
+        current_page_link = folder_link + "offset=" + ((current_page_number - 1) * 24).to_s
+        puts "(#{current_page_number}/#{last_page_number})Analyzing #{current_page_link}"
+        current_page_image_links = @agent.page.parser.css(link_selector).map{|a| a["href"]}
+        image_page_links.push(current_page_image_links)
+        next_page_link = folder_link + "offset=" + (current_page_number * 24).to_s
+        @agent.get(next_page_link)
       end
       image_page_links.flatten!
     rescue => ex
