@@ -41,10 +41,10 @@ class DeviantartGalleryDownloader
             download_link = download_button_link || image_link
           end
           if not download_link.nil?
-            file_path = get_file_path(index, image_page_links, download_link, folder[:name])
+            file_path = get_file_path(index, image_page_links, download_link, folder[:name], true)
             @agent.get(download_link).save(file_path) unless File.exist?(file_path)
           else
-            page_path = get_page_path(index,image_page_links, page_link, folder[:name])
+            page_path = get_file_path(index,image_page_links, page_link, folder[:name], false)
             #@agent.page.parser.css("div.text").save(page_path) unless File.exist?(page_path)
             @agent.page.save(page_path) unless File.exist?(page_path)
           end
@@ -245,36 +245,24 @@ class DeviantartGalleryDownloader
     end
   end
 
-  def get_file_path(index, image_page_links, download_link, folder_name)
+  def get_file_path(index, image_page_links, download_link, folder_name, is_image)
     title_art_elem = @agent.page.parser.css(".dev-title-container h1 a")
     title_elem = title_art_elem.first
     title_art = title_art_elem.last.text
     title = title_elem.text
-
-    puts "(#{index + 1}/#{image_page_links.count})Downloading \"#{title}\""
 
     #Sanitize filename
     file_name = download_link.split('?').first.split('/').last
     file_id = title_elem['href'].split('-').last
-    file_ext = file_name.split('.').last
-    file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/:?\\', '-')
-
-    file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
-    file_path = "deviantart/#{@author_name}/#{@gallery_name}/#{folder_name}/#{file_name}"
-  end
-
-  def get_page_path(index, image_page_links, page_link, folder_name)
-    title_art_elem = @agent.page.parser.css(".dev-title-container h1 a")
-    title_elem = title_art_elem.first
-    title_art = title_art_elem.last.text
-    title = title_elem.text
-
-    puts "(#{index + 1}/#{image_page_links.count})Saving \"#{title}\""
-
-    #Sanitize filename
-    file_name = page_link.split('?').first.split('/').last
-    file_id = title_elem['href'].split('-').last
-    file_ext = 'htm'
+    
+    if is_image
+      file_ext = file_name.split('.').last
+      puts "(#{index + 1}/#{image_page_links.count})Downloading \"#{title}\""
+    else
+      file_ext = 'htm'
+      puts "(#{index + 1}/#{image_page_links.count})Saving \"#{title}\""
+    end
+    
     file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/:?\\', '-')
 
     file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
