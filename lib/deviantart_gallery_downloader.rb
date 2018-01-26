@@ -178,7 +178,6 @@ class DeviantartGalleryDownloader
         link = folder['href']
         name = link.split('/').last
         folders.push({link: link, name: name})
-        subfolders = []
         subfolders = get_folders_in_folder(link,name)
         if not subfolders.nil?
           folders.concat(subfolders)
