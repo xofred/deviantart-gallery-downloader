@@ -11,7 +11,7 @@ class DeviantartGalleryDownloader
     @agent.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'
     @agent.request_headers = { 'Referer' => 'https://www.deviantart.com/' }
     @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
-    @author_name = @gallery_url.split('.').first.split('//').last
+    @author_name = @gallery_url.split('.com/').last.split('/').first
   end
 
   def fetch
@@ -256,7 +256,10 @@ class DeviantartGalleryDownloader
     file_id = title_elem['href'].split('-').last
     
     if is_image
-      file_ext = file_name.split('.').last
+      file_ext = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").text.split(' ')[1] # Use the 'download' button, if it exists, to figure out the file extension.
+	  if file_ext.nil?
+		file_ext = 'jpg' # if there's no download button, we need to pick something, and it's probably an image...
+	  end
       puts "(#{index + 1}/#{image_page_links.count})Downloading \"#{title}\""
     else
       file_ext = 'htm'
