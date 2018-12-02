@@ -256,9 +256,9 @@ class DeviantartGalleryDownloader
     file_id = title_elem['href'].split('-').last
     
     if is_image
-      file_ext = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").text.split(' ')[1] # Use the 'download' button, if it exists, to figure out the file extension.
+      file_ext = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").text.split(' ')[1] # The download URL no longer has the file type extension, so we have to use the text from the download button itself.
 	  if file_ext.nil?
-		file_ext = 'jpg' # if there's no download button, we need to pick something, and it's probably an image...
+		file_ext = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0].split('.').last # if there's no download button, but the file type is an image, we can use the URL from the full-view element (which still has the file type extension)
 	  end
       puts "(#{index + 1}/#{image_page_links.count})Downloading \"#{title}\""
     else
