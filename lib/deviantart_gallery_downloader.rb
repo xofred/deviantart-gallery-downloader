@@ -3,15 +3,19 @@ require 'netrc'
 
 class DeviantartGalleryDownloader
   attr_accessor :agent, :gallery_url, :author_name, :gallery_name
-  HOME_URL = "https://www.deviantart.com/users/login"
+  DA_ENDPOINT = 'https://www.deviantart.com/'
+  HOME_URL = "#{DA_ENDPOINT}users/login"
 
   def initialize
     @agent = Mechanize.new
     @agent.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'
-    @agent.request_headers = { 'Referer' => 'https://www.deviantart.com/' }
+    @agent.request_headers = { 'Referer' => DA_ENDPOINT }
     @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
-    @author_name = @gallery_url.split('.').first.split('//').last
-    @gallery_name = @gallery_url.split('/').count == 6 ? @gallery_url.split('/').last : "default-gallery"
+    find_out_which_kind_of_gallery
+    @image_page_selector = '#sub-folder-gallery > div > div:nth-child(2) > div > div > div > div > div > div > section > a'
+    @download_button_selector = '#root > main > div > div > section > div > div > div:nth-child(3) > span:nth-child(3) > div > div > a'
+    @image_selector = '#root > main > div > div > div > div > div > div > div > img'
+    @image_title_selector = '#root > main > div > div > div > div > div > div > div > h1'
   end
 
   def fetch
@@ -25,13 +29,19 @@ class DeviantartGalleryDownloader
       retry_count = 0
       begin
         @agent.get(page_link)
-        download_button_link = @agent.page.parser.css(".dev-page-button.dev-page-button-with-text.dev-page-download").map{|a| a["href"]}[0]
-        image_link = @agent.page.parser.css(".dev-content-full").map{|img| img["src"]}[0]
+        download_button_link = @agent.page.parser.css(@download_button_selector).map{|a| a["href"]}[0]
+        image_link = @agent.page.parser.css(@image_selector).map{|img| img["src"]}[0]
         download_link = download_button_link || image_link
+        next puts "can't find download link or image src in #{page_link}" if !download_link
+
         file_path = get_file_path(index, image_page_links, download_link)
-        @agent.get(download_link).save(file_path) unless File.exist?(file_path)
+        next print "image already exist, skiped\n" if File.exist?(file_path)
+
+        @agent.get(download_link).save(file_path)
+        print "download completed\n"
       rescue => ex
         puts ex.message
+        puts ex.backtrace.join("\n")
         if retry_count < 3
           retry_count += 1
           puts "retrying..."
@@ -45,10 +55,40 @@ class DeviantartGalleryDownloader
     puts "\nAll download completed. Check deviantart/#{@author_name}/#{@gallery_name}\n\n"
     t2 = Time.now
     save = t2 - t1
-    puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."   
+    puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."
   end
 
   private
+
+  def find_out_which_kind_of_gallery
+    begin
+      if @gallery_url.split(DA_ENDPOINT)[1].split('/').size == 2 && @gallery_url.split(DA_ENDPOINT)[1].split('/')[-1] == 'gallery'
+        # https://www.deviantart.com/kalfy/gallery
+        @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
+        @gallery_name = "default-gallery" # aka 'Featured'
+        @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1] == '/all' ||
+        @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1] == '/all/'
+        # https://www.deviantart.com/kalfy/gallery/all
+        @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
+        @gallery_name = 'all'
+        @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1].split('/').size == 3
+        # https://www.deviantart.com/kalfy/gallery/72183557/characters
+        @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
+        @gallery_name = @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1].split('/')[-1]
+        @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+      else
+        puts "Probably not a valid deviantart gallery url, abort"
+        display_help_msssage
+        abort
+      end
+    rescue
+      puts "Probably not a valid deviantart gallery url, abort"
+      display_help_msssage
+      abort
+    end
+  end
 
   def create_or_update_credential
     if ARGV.size == 2 && ARGV[0] == "-n"
@@ -83,20 +123,23 @@ class DeviantartGalleryDownloader
     else
       display_help_msssage
       abort
-    end  
+    end
   end
 
   def display_help_msssage
-    puts "The downloader uses GALLERY'S PAGE"
-    puts ""
+    puts "----------"
+    puts "Usage:\n\n"
     puts "On the intital run, we need to add your login credential to your users ~/.netrc file, so we don't leave your username and password in the process ID,"
     puts "which could be seen by other users on the system (note: the initial run of this script will show up in your bash history)."
     puts ""
-    puts "ruby fetch.rb YOUR_USERNAME YOUR_PASSWORD http://azoexevan.deviantart.com/gallery/"
+    puts "ruby fetch.rb YOUR_USERNAME YOUR_PASSWORD https://www.deviantart.com/kalfy/gallery"
     puts ""
     puts "An entry in ~/.netrc is created for you. You can then use '-n' and it will poll the netrc file for your login credentials."
     puts ""
-    puts "ruby fetch.rb -n http://azoexevan.deviantart.com/gallery/"
+    puts "(Featured)      ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery"
+    puts "(all)           ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/all"
+    puts "(some gallery)  ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/72183557/characters"
+    puts "----------"
   end
 
   def create_image_directories
@@ -110,11 +153,11 @@ class DeviantartGalleryDownloader
   end
 
   def login_to_deviantart(netrc_credential)
-    puts "Logging in" 
+    puts "Logging in"
     retry_count = 0
     begin
       @agent.get(HOME_URL)
-      @agent.page.form_with(:id => 'login') do |f|
+      @agent.page.form_with(:action => '/_sisu/do/signin') do |f|
         if ARGV.size == 3
           f.username = ARGV[0]
           f.password = ARGV[1]
@@ -136,34 +179,32 @@ class DeviantartGalleryDownloader
         retry_count += 1
         puts "Will retry after 1 second"
         sleep 1
-        retry  
+        retry
       else
         puts "Login failed after 3 retries"
         puts "You might not be able to fetch the age restricted resources"
       end
-    end   
+    end
   end
 
   def get_image_page_links
     retry_count = 0
     puts "Connecting to gallery"
     begin
-      @agent.get(@gallery_url)
+      gallery_link = @gallery_url
+      @agent.get(gallery_link)
       page_links = []
-      link_selector = 'a.torpedo-thumb-link'
       last_page_number = get_last_page_number
       last_page_number.times do |i|
         current_page_number = i + 1
-        puts "(#{current_page_number}/#{last_page_number})Analyzing #{@gallery_url}"
-        page_link = @agent.page.parser.css(link_selector).map{|a| a["href"]}
-        page_links << page_link
-        gallery_link = @gallery_url.include?("?") ? @gallery_url + "&" : @gallery_url + "?"
-        if current_page_number > 1
-          gallery_link += "offset=" + (current_page_number * 24).to_s
-        end
+        puts "(#{current_page_number}/#{last_page_number})Analyzing #{gallery_link}"
+        page_links_of_this_page = @agent.page.parser.css(@image_page_selector).map{|a| a["href"]}
+        page_links << page_links_of_this_page
+        gallery_link = @gallery_url + "?page=#{current_page_number + 1}"
         @agent.get(gallery_link)
       end
-      page_links.flatten!
+      page_links = page_links.flatten.uniq
+      page_links
     rescue => ex
       puts ex.message
       if retry_count < 3
@@ -178,33 +219,26 @@ class DeviantartGalleryDownloader
   end
 
   def get_file_path(index, image_page_links, download_link)
-    title_art_elem = @agent.page.parser.css(".dev-title-container h1 a")
-    title_elem = title_art_elem.first
-    title_art = title_art_elem.last.text
+    title_elem = @agent.page.parser.css(@image_title_selector)
     title = title_elem.text
-
-    puts "(#{index + 1}/#{image_page_links.count})Downloading \"#{title}\""
+    print "(#{index + 1}/#{image_page_links.count})Downloading \"#{title}\"..."
 
     #Sanitize filename
     file_name = download_link.split('?').first.split('/').last
-    file_id = title_elem['href'].split('-').last
     file_ext = file_name.split('.').last
     file_title = title.strip().gsub(/\.+$/, '').gsub(/^\.+/, '').strip().squeeze(" ").tr('/\\', '-')
+    file_name = file_title+'.'+file_ext
 
-    file_name = title_art+'-'+file_title+'.'+file_id+'.'+file_ext
-    file_path = "deviantart/#{@author_name}/#{@gallery_name}/#{file_name}"
+    "deviantart/#{@author_name}/#{@gallery_name}/#{file_name}"
   end
 
   def get_last_page_number
-    page_numbers_selector = '.zones-top-left .pagination ul.pages li.number'
-    last_page = @agent.page.parser.css(page_numbers_selector).last
+    page_numbers = @agent.page.parser.css('#sub-folder-gallery > div > div:nth-child(3) > div > a')
+    last_page = page_numbers[-2] # the last one is 'Next', so it should be the one before
+    return last_page.text.to_i if last_page
 
-    if last_page
-      last_page_number = last_page.text.to_i
-    elsif @agent.page.parser.css('.torpedo-thumb-link img').any?
-      last_page_number = 1
-    else
-      abort "gallery has no images, abort"
-    end   
+    return 1 if @agent.page.parser.css(@image_page_selector).any?
+
+    abort "gallery has no images, abort"
   end
 end
