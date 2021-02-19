@@ -3,3 +3,5 @@
 *.gif
 *.tif
 /deviantart
+.DS_Store
+*.swp
