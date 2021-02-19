@@ -26,6 +26,6 @@ On the intital run, we need to add your login credential to your users ~/.netrc 
 
 An entry in ~/.netrc is created for you. You can then use '-n' and it will poll the netrc file for your login credentials.
 
-(Featured)      `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery`
-(all)           `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/all`
-(some gallery)  `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/72183557/characters`
+- (Featured)      `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery`
+- (all)           `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/all`
+- (some gallery)  `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/72183557/characters`
