@@ -1,5 +1,6 @@
 require 'mechanize'
 require 'netrc'
+require 'getopt/std'
 
 class DeviantartGalleryDownloader
   attr_accessor :agent, :gallery_url, :author_name, :gallery_name
@@ -7,10 +8,11 @@ class DeviantartGalleryDownloader
   HOME_URL = "#{DA_ENDPOINT}users/login"
 
   def initialize
+    @opt = Getopt::Std.getopts("np:")
     @agent = Mechanize.new
     @agent.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'
     @agent.request_headers = { 'Referer' => DA_ENDPOINT }
-    @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[1].to_s
+    @gallery_url = ARGV.size == 3 ? ARGV[2].to_s : ARGV[0].to_s
     find_out_which_kind_of_gallery
     @image_page_selector = '#sub-folder-gallery > div > div:nth-child(2) > div > div > div > div > div > div > section > a'
     @download_button_selector = '#root > main > div > div > section > div > div > div:nth-child(3) > span:nth-child(3) > div > div > a'
@@ -52,7 +54,11 @@ class DeviantartGalleryDownloader
       end
     end
 
-    puts "\nAll download completed. Check deviantart/#{@author_name}/#{@gallery_name}\n\n"
+    if @opt["p"]
+        puts "\nPage #{@opt["p"]} of #{@last_page_number} completed. Check deviantart/#{@author_name}/#{@gallery_name}\n\n"
+    else
+      puts "\nAll download completed. Check deviantart/#{@author_name}/#{@gallery_name}\n\n"
+    end
     t2 = Time.now
     save = t2 - t1
     puts "Time costs: #{(save/60).floor} mins #{(save%60).floor} secs."
@@ -67,17 +73,38 @@ class DeviantartGalleryDownloader
         @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
         @gallery_name = "default-gallery" # aka 'Featured'
         @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
-      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1] == '/all' ||
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/')[1] == 'gallery' &&
+        @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1] == '/all' ||
         @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1] == '/all/'
         # https://www.deviantart.com/kalfy/gallery/all
         @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
         @gallery_name = 'all'
         @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
-      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1].split('/').size == 3
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/')[1] == 'gallery' &&
+        @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1].split('/').size == 3
         # https://www.deviantart.com/kalfy/gallery/72183557/characters
         @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
         @gallery_name = @gallery_url.split(DA_ENDPOINT)[1].split('/gallery')[1].split('/')[-1]
         @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/').size == 2 && @gallery_url.split(DA_ENDPOINT)[1].split('/')[-1] == 'favourites'
+        # https://www.deviantart.com/kalfy/favourites
+        @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
+        @gallery_name = "default-favourites"
+        @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/')[1] == 'favourites' &&
+        @gallery_url.split(DA_ENDPOINT)[1].split('/favourites')[1] == '/all' ||
+        @gallery_url.split(DA_ENDPOINT)[1].split('/favourites')[1] == '/all/'
+        # https://www.deviantart.com/kalfy/favourites/all
+        @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
+        @gallery_name = 'favourites-all'
+        @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+      elsif @gallery_url.split(DA_ENDPOINT)[1].split('/')[1] == 'favourites' &&
+        @gallery_url.split(DA_ENDPOINT)[1].split('/favourites')[1].split('/').size == 3
+        # https://www.deviantart.com/kalfy/favourites/72183557/characters
+        @author_name = @gallery_url.split(DA_ENDPOINT)[1].split('/')[0]
+        @gallery_name = @gallery_url.split(DA_ENDPOINT)[1].split('/favourites')[1].split('/')[-1]
+        @gallery_url = @gallery_url.chop if @gallery_url[-1] == '/'
+
       else
         puts "Probably not a valid deviantart gallery url, abort"
         display_help_msssage
@@ -91,7 +118,7 @@ class DeviantartGalleryDownloader
   end
 
   def create_or_update_credential
-    if ARGV.size == 2 && ARGV[0] == "-n"
+    if @opt["n"]
       if n = Netrc.read
         if n["deviantart.com"]
           puts "Using netrc's credential"
@@ -194,14 +221,23 @@ class DeviantartGalleryDownloader
       gallery_link = @gallery_url
       @agent.get(gallery_link)
       page_links = []
-      last_page_number = get_last_page_number
-      last_page_number.times do |i|
-        current_page_number = i + 1
-        puts "(#{current_page_number}/#{last_page_number})Analyzing #{gallery_link}"
-        page_links_of_this_page = @agent.page.parser.css(@image_page_selector).map{|a| a["href"]}
-        page_links << page_links_of_this_page
-        gallery_link = @gallery_url + "?page=#{current_page_number + 1}"
-        @agent.get(gallery_link)
+      @last_page_number = get_last_page_number
+      if @opt["p"]
+          current_page_number = @opt["p"].to_i
+          gallery_link = @gallery_url + "?page=#{current_page_number}"
+          @agent.get(gallery_link)
+          puts "(#{current_page_number}/#{@last_page_number})Analyzing #{gallery_link}"
+          page_links_of_this_page = @agent.page.parser.css(@image_page_selector).map{|a| a["href"]}
+          page_links << page_links_of_this_page
+      else
+        @last_page_number.times do |i|
+          current_page_number = i + 1
+          puts "(#{current_page_number}/#{@last_page_number})Analyzing #{gallery_link}"
+          page_links_of_this_page = @agent.page.parser.css(@image_page_selector).map{|a| a["href"]}
+          page_links << page_links_of_this_page
+          gallery_link = @gallery_url + "?page=#{current_page_number + 1}"
+          @agent.get(gallery_link)
+        end
       end
       page_links = page_links.flatten.uniq
       page_links
