@@ -1,3 +1,5 @@
+
+
 # Change log
 - [2021-02-19]
   - DeviantArt have refactored their frontend, guys must git pull the newest master branch to use.
@@ -29,3 +31,5 @@ An entry in ~/.netrc is created for you. You can then use '-n' and it will poll 
 - (Featured)      `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery`
 - (all)           `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/all`
 - (some gallery)  `ruby fetch.rb -n https://www.deviantart.com/kalfy/gallery/72183557/characters`
+
+Downloaded images are saved under `deviantart/<author_name>/<gallery_name>/`.
